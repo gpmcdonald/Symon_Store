@@ -1,18 +1,30 @@
 # Custom Local AI Workflow
 
-A practical, copy-and-paste friendly setup guide for building a local AI environment on **Debian 13 (trixie)** with an **NVIDIA GeForce RTX 5070 Ti**.
+A copy/paste-friendly setup guide for getting a local AI environment running on **Debian 13 (trixie)** with an **NVIDIA GeForce RTX 5070 Ti**.
 
-## What this guide covers
+## Goal
 
-1. Install system dependencies
-2. Install NVIDIA CUDA
-3. Set up NVIDIA AIStore
-4. Build `llama.cpp`
-5. Verify the environment
+Follow this guide top to bottom. Each step includes exact commands and a clear outcome so you can move through the setup without guessing.
+
+## What you will set up
+
+- NVIDIA CUDA drivers and toolkit
+- NVIDIA AIStore
+- `llama.cpp`
+- Environment verification
+
+## Before you begin
+
+Make sure you have:
+
+- Debian 13 installed
+- Internet access
+- Sudo access
+- Enough disk space for CUDA, AIStore, and model files
 
 ---
 
-## 1) Install system dependencies
+## 1) Install required system packages
 
 Run this first:
 
@@ -30,13 +42,22 @@ sudo apt-get install -y \
   libglfw3-dev
 ```
 
+### If this fails
+
+- Run `sudo apt-get update` again
+- Check your network connection
+- Make sure your Debian repositories are enabled
+
 ---
 
 ## 2) Install NVIDIA CUDA
 
-Official guide: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux
+Official installation guide:
+https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux
 
-### 2.1 Check your system
+### Step 2.1 — Confirm your hardware and OS
+
+Run these commands:
 
 ```bash
 lspci | grep -i nvidia
@@ -45,32 +66,45 @@ cat /etc/*release
 gcc --version
 ```
 
-You should confirm:
+### Expected result
 
-- your GPU is detected
-- your OS is supported
-- your architecture is `x86_64`
+- `lspci` should show your NVIDIA GPU
+- `uname -m` should return `x86_64`
+- Your OS should be a supported Debian version
+- `gcc --version` should work
 
-### 2.2 Download CUDA
+### If this fails
 
-Choose your installer here:
+- If `lspci` shows nothing, check that the GPU is installed and enabled in BIOS
+- If `uname -m` is not `x86_64`, this guide may not apply
+- If `gcc` is missing, install it with the package step above
 
-- https://developer.nvidia.com/cuda-downloads
+### Step 2.2 — Download CUDA
 
-If you download a package manually, verify it with:
+Choose the installer from:
+
+https://developer.nvidia.com/cuda-downloads
+
+If you downloaded a file manually, verify it:
 
 ```bash
 md5sum <downloaded-file>
 ```
 
-### 2.3 Install the CUDA keyring
+### Step 2.3 — Install the CUDA keyring
 
 ```bash
 wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb
 sudo dpkg -i cuda-keyring_1.1-1_all.deb
 ```
 
-### 2.4 Install the toolkit
+### If this fails
+
+- Re-run the command with `sudo apt-get update` after installing the keyring
+- Confirm the download URL still exists
+- Make sure you are using the Debian 13 package
+
+### Step 2.4 — Install the CUDA toolkit
 
 ```bash
 sudo apt-get update
@@ -78,108 +112,157 @@ sudo apt-get install -y cuda-toolkit
 sudo reboot
 ```
 
-### 2.5 Add CUDA to your shell environment
+### If this fails
 
-After reboot, add the following to `~/.bashrc` or your shell profile:
+- Re-run `sudo apt-get update`
+- Check for broken packages:
 
 ```bash
-export PATH=/usr/local/cuda-12.6/bin${PATH:+:${PATH}}
-export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+sudo apt --fix-broken install
 ```
 
-Reload your shell:
+- Make sure the NVIDIA repositories were added successfully
+
+### Step 2.5 — Set environment variables
+
+After reboot, add CUDA to your shell profile.
+
+For Bash:
 
 ```bash
+echo 'export PATH=/usr/local/cuda-12.6/bin${PATH:+:${PATH}}' >> ~/.bashrc
+echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-### 2.6 Verify CUDA
+### Step 2.6 — Verify CUDA
 
 ```bash
 nvidia-smi
 ```
 
-If you want to test with CUDA samples:
+Optional test samples:
 
 - https://github.com/nvidia/cuda-samples
+
+### If this fails
+
+- Reboot again
+- Check whether the NVIDIA driver loaded correctly
+- Confirm `nvidia-smi` is available in your PATH
+- If the command is missing, review the CUDA install step
 
 ---
 
 ## 3) Set up NVIDIA AIStore
 
-Official guide: https://docs.nvidia.com/aistore/getting_started
+Official getting started guide:
+https://docs.nvidia.com/aistore/getting_started
 
-### 3.1 Decide your disk layout
+CLI docs:
+https://docs.nvidia.com/aistore/cli
+
+### Step 3.1 — Plan disk usage
 
 Before installing AIStore, decide:
 
 - which disk to use
-- how large it should be
-- how it should be partitioned
+- how much space to allocate
+- how to partition it
 
-If needed, configure a custom service and/or `/etc/fstab` first.
+If needed, configure `custom.service` and/or `/etc/fstab` before continuing.
 
-### 3.2 Clone and deploy AIStore
+### Step 3.2 — Clone AIStore
 
 ```bash
 mkdir -p "$GOPATH/src/github.com/NVIDIA"
 cd "$GOPATH/src/github.com/NVIDIA"
 git clone https://github.com/NVIDIA/aistore.git
 cd aistore
+```
+
+### Step 3.3 — Build and deploy a minimal cluster
+
+```bash
 make kill clean cli aisloader deploy <<< $'1\n1'
 ```
 
-### 3.3 Verify the cluster
+### Step 3.4 — Verify the cluster
 
 ```bash
 ais show cluster
 ```
 
-CLI reference:
+### Expected result
 
-- https://docs.nvidia.com/aistore/cli
+The cluster should report as running.
+
+### If this fails
+
+- Make sure `GOPATH` is set correctly:
+
+```bash
+echo "$GOPATH"
+```
+
+- Re-run the deploy command
+- Check that your disk/service setup is complete
+- Review the AIStore documentation above
 
 ---
 
-## 4) Build and set up `llama.cpp`
+## 4) Set up `llama.cpp`
+
+### Step 4.1 — Clone the repository
 
 ```bash
 git clone --depth=1 https://github.com/ggerganov/llama.cpp
 cd llama.cpp
-cmake -B build
-sudo dpkg -i *.deb
 ```
 
-If you prefer a clean build directory layout, use:
+### Step 4.2 — Configure and build
 
 ```bash
-cmake -B build -S .
+cmake -B build
 cmake --build build -j"$(nproc)"
 ```
 
----
-
-## 5) Verify everything works
-
-Run this after setup:
+### Step 4.3 — Install any local `.deb` packages if needed
 
 ```bash
-ais show cluster
+sudo dpkg -i *.deb
 ```
 
-You can also confirm the GPU is visible:
+### If this fails
+
+- Install missing build dependencies from Step 1
+- Make sure CMake is installed
+- Re-run the build command after resolving errors
+
+---
+
+## 5) Verify the full setup
+
+Run these checks:
 
 ```bash
 lspci | grep -i nvidia
 nvidia-smi
+ais show cluster
 ```
+
+### Expected result
+
+- Your NVIDIA GPU should be visible
+- CUDA should report successfully
+- AIStore should show a running cluster
 
 ---
 
 ## Reference links
 
 - CUDA downloads: https://developer.nvidia.com/cuda-downloads
-- CUDA GPUs: https://developer.nvidia.com/cuda/gpus
+- CUDA GPUs list: https://developer.nvidia.com/cuda/gpus
 - CUDA install guide: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux
 - CUDA samples: https://github.com/nvidia/cuda-samples
 - AIStore getting started: https://docs.nvidia.com/aistore/getting_started
