@@ -1,152 +1,147 @@
 # Custom Local AI Workflow
 
-This repository documents a local AI setup for **Debian 13 (trixie)** with an **NVIDIA GeForce RTX 5070 Ti**.
+A practical, copy-and-paste friendly setup guide for building a local AI environment on **Debian 13 (trixie)** with an **NVIDIA GeForce RTX 5070 Ti**.
 
-## Table of Contents
+## What this guide covers
 
-- [Overview](#overview)
-- [Quick Start](#quick-start)
-- [Prerequisites](#prerequisites)
-- [NVIDIA CUDA Driver Setup](#1-nvidia-cuda-driver-setup)
-- [NVIDIA AIStore Setup](#2-nvidia-aistore-setup)
-- [llama.cpp Setup](#3-llamacpp-setup)
-- [Verification](#verification)
-- [Reference Notes](#reference-notes)
+1. Install system dependencies
+2. Install NVIDIA CUDA
+3. Set up NVIDIA AIStore
+4. Build `llama.cpp`
+5. Verify the environment
 
-## Overview
+---
 
-This workflow covers:
+## 1) Install system dependencies
 
-- NVIDIA CUDA driver and toolkit installation
-- NVIDIA AIStore setup
-- `llama.cpp` setup
-- Basic verification steps and useful references
-
-## Quick Start
-
-1. Install system dependencies.
-2. Install the NVIDIA CUDA driver/toolkit.
-3. Set up AIStore.
-4. Clone and build `llama.cpp`.
-5. Verify everything with `ais show cluster`.
-
-## Prerequisites
-
-Install the required build and OpenGL dependencies:
+Run this first:
 
 ```bash
 sudo apt-get update
-sudo apt-get install g++ freeglut3-dev build-essential libx11-dev \
-    libxmu-dev libxi-dev libglu1-mesa-dev libfreeimage-dev libglfw3-dev
+sudo apt-get install -y \
+  g++ \
+  freeglut3-dev \
+  build-essential \
+  libx11-dev \
+  libxmu-dev \
+  libxi-dev \
+  libglu1-mesa-dev \
+  libfreeimage-dev \
+  libglfw3-dev
 ```
 
-## 1. NVIDIA CUDA Driver Setup
+---
+
+## 2) Install NVIDIA CUDA
 
 Official guide: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux
 
-### Steps
+### 2.1 Check your system
 
-1. Check your GPU:
+```bash
+lspci | grep -i nvidia
+uname -m
+cat /etc/*release
+gcc --version
+```
 
-   ```bash
-   lspci | grep -i nvidia
-   ```
+You should confirm:
 
-   Compare against: https://developer.nvidia.com/cuda/gpus
+- your GPU is detected
+- your OS is supported
+- your architecture is `x86_64`
 
-2. Check your system architecture and OS:
+### 2.2 Download CUDA
 
-   ```bash
-   uname -m && cat /etc/*release
-   ```
+Choose your installer here:
 
-3. Check your GCC version:
+- https://developer.nvidia.com/cuda-downloads
 
-   ```bash
-   gcc --version
-   ```
+If you download a package manually, verify it with:
 
-4. Choose an installation method:
+```bash
+md5sum <downloaded-file>
+```
 
-   - https://developer.nvidia.com/cuda-downloads
-   - Verify checksums for the downloaded file
+### 2.3 Install the CUDA keyring
 
-5. Verify the download:
+```bash
+wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb
+sudo dpkg -i cuda-keyring_1.1-1_all.deb
+```
 
-   ```bash
-   md5sum <downloaded-file>
-   ```
+### 2.4 Install the toolkit
 
-6. Install the CUDA keyring package:
+```bash
+sudo apt-get update
+sudo apt-get install -y cuda-toolkit
+sudo reboot
+```
 
-   ```bash
-   wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb
-   sudo dpkg -i cuda-keyring_1.1-1_all.deb
-   ```
+### 2.5 Add CUDA to your shell environment
 
-7. Install the CUDA toolkit:
-
-   ```bash
-   sudo apt-get install cuda-toolkit
-   sudo reboot
-   ```
-
-### Post-installation
-
-Add CUDA to your environment:
+After reboot, add the following to `~/.bashrc` or your shell profile:
 
 ```bash
 export PATH=/usr/local/cuda-12.6/bin${PATH:+:${PATH}}
-```
-
-For 64-bit systems:
-
-```bash
 export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ```
 
-For 32-bit systems:
+Reload your shell:
 
 ```bash
-export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+source ~/.bashrc
 ```
 
-### Testing
+### 2.6 Verify CUDA
 
-- CUDA samples: https://github.com/nvidia/cuda-samples
-- Verify binaries: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux/_images/valid-results-from-sample-cuda-devicequery-program.png
-- Advanced setup: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux/#advanced-setup
+```bash
+nvidia-smi
+```
 
-## 2. NVIDIA AIStore Setup
+If you want to test with CUDA samples:
 
-### Disk Setup
+- https://github.com/nvidia/cuda-samples
 
-Decide:
+---
 
-- which disk to use
-- disk size
-- partitioning strategy
-
-### Service Setup
-
-Set up `custom.service` and/or `/etc/fstab` as needed.
-
-### Clone and Deploy AIStore
+## 3) Set up NVIDIA AIStore
 
 Official guide: https://docs.nvidia.com/aistore/getting_started
 
-```bash
-cd $GOPATH/src/github.com/NVIDIA
+### 3.1 Decide your disk layout
 
+Before installing AIStore, decide:
+
+- which disk to use
+- how large it should be
+- how it should be partitioned
+
+If needed, configure a custom service and/or `/etc/fstab` first.
+
+### 3.2 Clone and deploy AIStore
+
+```bash
+mkdir -p "$GOPATH/src/github.com/NVIDIA"
+cd "$GOPATH/src/github.com/NVIDIA"
 git clone https://github.com/NVIDIA/aistore.git
 cd aistore
-make kill clean cli aisloader deploy <<< $'1\n1'   # Build CLI + aisloader and deploy a minimal cluster
-ais show cluster                                    # Verify the cluster is running
+make kill clean cli aisloader deploy <<< $'1\n1'
 ```
 
-Learning the CLI: https://docs.nvidia.com/aistore/cli
+### 3.3 Verify the cluster
 
-## 3. llama.cpp Setup
+```bash
+ais show cluster
+```
+
+CLI reference:
+
+- https://docs.nvidia.com/aistore/cli
+
+---
+
+## 4) Build and set up `llama.cpp`
 
 ```bash
 git clone --depth=1 https://github.com/ggerganov/llama.cpp
@@ -155,36 +150,55 @@ cmake -B build
 sudo dpkg -i *.deb
 ```
 
-## Verification
+If you prefer a clean build directory layout, use:
 
-Once everything is installed:
+```bash
+cmake -B build -S .
+cmake --build build -j"$(nproc)"
+```
+
+---
+
+## 5) Verify everything works
+
+Run this after setup:
 
 ```bash
 ais show cluster
 ```
 
-## Reference Notes
-
-### GPU detected
+You can also confirm the GPU is visible:
 
 ```bash
 lspci | grep -i nvidia
+nvidia-smi
 ```
 
-Output:
+---
+
+## Reference links
+
+- CUDA downloads: https://developer.nvidia.com/cuda-downloads
+- CUDA GPUs: https://developer.nvidia.com/cuda/gpus
+- CUDA install guide: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux
+- CUDA samples: https://github.com/nvidia/cuda-samples
+- AIStore getting started: https://docs.nvidia.com/aistore/getting_started
+- AIStore CLI docs: https://docs.nvidia.com/aistore/cli
+- Hugging Face models: https://huggingface.co/models
+- AIStore main site: https://docs.nvidia.com/aistore/
+
+---
+
+## Notes from system checks
+
+### Detected GPU
 
 ```text
 01:00.0 VGA compatible controller: NVIDIA Corporation GB203 [GeForce RTX 5070 Ti] (rev a1)
 01:00.1 Audio device: NVIDIA Corporation GB203 High Definition Audio Controller (rev a1)
 ```
 
-### System info
-
-```bash
-uname -m && cat /etc/*release
-```
-
-Output:
+### Detected OS
 
 ```text
 x86_64
