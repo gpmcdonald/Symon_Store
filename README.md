@@ -1,93 +1,192 @@
-CUSTOM_LOCAL_AI WORKFLOW
+# Custom Local AI Workflow
 
-This is for Debian/CUDA/5070-TI
+This project documents a local AI setup for **Debian 13 (trixie)** with an **NVIDIA GeForce RTX 5070 Ti**.
 
+## Overview
+
+The workflow covers:
+
+- NVIDIA CUDA driver and toolkit installation
+- NVIDIA AIStore setup
+- `llama.cpp` setup
+- Basic verification steps and useful references
+
+## Prerequisites
+
+Install the required build and OpenGL dependencies:
+
+```bash
 sudo apt-get install g++ freeglut3-dev build-essential libx11-dev \
     libxmu-dev libxi-dev libglu1-mesa-dev libfreeimage-dev libglfw3-dev
+```
 
-1. NVIDIA CUDA Driver setup @ https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux
-    a. lspci | grep -i nvidia and compare to https://developer.nvidia.com/cuda/gpus
-    b  uname -m && cat /etc/*release and make sure you have a supported linux version
-    c. gcc --version
-    d. choose installation
-        i. https://developer.nvidia.com/cuda-downloads
-        ii. checksums listed below
-    e. md5sum the downladed file
-    f. Install the new cuda-keyring package
-        i. wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb
-        ii. sudo dpkg -i cuda-keyring_1.1-1_all.deb
-    g. Install CUDA SDK
-        i. sudo apt-get install cuda-toolkit
-        ii. sudo reboot
-    h. post-installation
-        i.  export PATH=/usr/local/cuda-12.6/bin${PATH:+:${PATH}}
-        ii. To change the environment variables for 64-bit operating systems:
-                export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64\
-                                          ${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-        iii. To change the environment variables for 32-bit operating systems:
-                export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib\
-                         ${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-        iv. Testing the install with CUDA SAMPLES https://github.com/nvidia/cuda-samples
-         v. Verify binaries https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux/_images/valid-results-from-sample-cuda-devicequery-program.png
-         v. Advanced setup see https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux/#advanced-setup
+## 1. NVIDIA CUDA Driver Setup
 
-2. NVIDIA AISTORE setup
-    a. Disk Setup
-        i. which disk
-        ii. size of disk
-        iii. partitioning of disk
-    d. Setup custom.service and/or /etc/fstab
-    e. Clone the repository using https://docs.nvidia.com/aistore/getting_started
-        i.
-        ii. $cd $GOPATH/src/github.com/NVIDIA
-        iii. $cd $GOPATH/src/github.com/NVIDIA
-        iv. $cd aistore
-        v. $make kill clean cli aisloader deploy <<< $'1\n1' #build CLI and 'aisloader' (bench), and deploy a minimal cluster
-        vi. $ais show cluster #Verify the cluster is running
+Official guide: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux
 
-3. llama.cpp setup
-    a. git clone --depth=1 https://github.com/ggerganov/llama.cpp
-    b. cd llama.cpp
-    c. cmake -Bbuild
-    d. sudo dpkg -i *.deb
+### Steps
 
+1. Check your GPU:
 
-Getting started @
+   ```bash
+   lspci | grep -i nvidia
+   ```
 
+   Compare against: https://developer.nvidia.com/cuda/gpus
 
-$ ais show cluster
+2. Check your system architecture and OS:
 
-Learning the Command Line @ https://docs.nvidia.com/aistore/cli
+   ```bash
+   uname -m && cat /etc/*release
+   ```
 
+3. Check your GCC version:
 
+   ```bash
+   gcc --version
+   ```
 
-https://huggingface.co/models
-https://docs.nvidia.com/aistore/
+4. Choose an installation method:
+   - https://developer.nvidia.com/cuda-downloads
+   - Verify checksums for the downloaded file
 
+5. Verify the download:
 
-î¶google î° â¦/llama.cpp î° ï master  î°î°î° 13:12 î´ lspci | grep -i nvidia
+   ```bash
+   md5sum <downloaded-file>
+   ```
+
+6. Install the CUDA keyring package:
+
+   ```bash
+   wget https://developer.download.nvidia.com/compute/cuda/repos/debian13/x86_64/cuda-keyring_1.1-1_all.deb
+   sudo dpkg -i cuda-keyring_1.1-1_all.deb
+   ```
+
+7. Install the CUDA toolkit:
+
+   ```bash
+   sudo apt-get install cuda-toolkit
+   sudo reboot
+   ```
+
+### Post-installation
+
+Add CUDA to your environment:
+
+```bash
+export PATH=/usr/local/cuda-12.6/bin${PATH:+:${PATH}}
+```
+
+For 64-bit systems:
+
+```bash
+export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+```
+
+For 32-bit systems:
+
+```bash
+export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+```
+
+### Testing
+
+- CUDA samples: https://github.com/nvidia/cuda-samples
+- Verify binaries: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux/_images/valid-results-from-sample-cuda-devicequery-program.png
+- Advanced setup: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-guide-linux/#advanced-setup
+
+## 2. NVIDIA AIStore Setup
+
+### Disk setup
+
+Decide:
+
+- which disk to use
+- disk size
+- partitioning strategy
+
+### Service setup
+
+Set up `custom.service` and/or `/etc/fstab` as needed.
+
+### Clone and deploy AIStore
+
+Official guide: https://docs.nvidia.com/aistore/getting_started
+
+```bash
+cd $GOPATH/src/github.com/NVIDIA
+
+git clone https://github.com/NVIDIA/aistore.git
+cd aistore
+make kill clean cli aisloader deploy <<< $'1\n1'   # Build CLI + aisloader and deploy a minimal cluster
+ais show cluster                                    # Verify the cluster is running
+```
+
+Learning the CLI: https://docs.nvidia.com/aistore/cli
+
+## 3. llama.cpp Setup
+
+```bash
+git clone --depth=1 https://github.com/ggerganov/llama.cpp
+cd llama.cpp
+cmake -B build
+sudo dpkg -i *.deb
+```
+
+## Getting Started
+
+Once everything is installed:
+
+```bash
+ais show cluster
+```
+
+Useful links:
+
+- https://huggingface.co/models
+- https://docs.nvidia.com/aistore/
+
+## Notes from System Checks
+
+### GPU detected
+
+```bash
+lspci | grep -i nvidia
+```
+
+Output:
+
+```text
 01:00.0 VGA compatible controller: NVIDIA Corporation GB203 [GeForce RTX 5070 Ti] (rev a1)
 01:00.1 Audio device: NVIDIA Corporation GB203 High Definition Audio Controller (rev a1)
+```
 
+### System info
 
-google î° â¦/llama.cpp î° ï master  î°î°î° 13:32 î´ uname -m && cat /etc/*release
+```bash
+uname -m && cat /etc/*release
+```
+
+Output:
+
+```text
 x86_64
-ââââââââ¬âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-       â File: /etc/os-release
-ââââââââ¼âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-   1   â PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
-   2   â NAME="Debian GNU/Linux"
-   3   â VERSION_ID="13"
-   4   â VERSION="13 (trixie)"
-   5   â VERSION_CODENAME=trixie
-   6   â DEBIAN_VERSION_FULL=13.5
-   7   â ID=debian
-   8   â HOME_URL="https://www.debian.org/"
-   9   â SUPPORT_URL="https://www.debian.org/support"
-  10   â BUG_REPORT_URL="https://bugs.debian.org/"
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+NAME="Debian GNU/Linux"
+VERSION_ID="13"
+VERSION="13 (trixie)"
+VERSION_CODENAME=trixie
+DEBIAN_VERSION_FULL=13.5
+ID=debian
+HOME_URL="https://www.debian.org/"
+SUPPORT_URL="https://www.debian.org/support"
+BUG_REPORT_URL="https://bugs.debian.org/"
+```
 
+### CUDA package checksums / downloads
 
-
+```text
 ca4d11a6afcd021ba52d807373e6076f cuda-repo-amzn2023-12-6-local-12.6.2_560.35.03-1.x86_64.rpm
 508181fae90cf390ad070cfc1c24b7e1 cuda-repo-cm2-12-6-local-12.6.2_560.35.03-1.x86_64.rpm
 7b032f0534c2193de8ff25af1e5ce468 cuda-repo-debian11-12-6-local_12.6.2-560.35.03-1_amd64.deb
@@ -122,3 +221,4 @@ d848c252740e1b09f1b0efed2df6dde0 cuda-repo-cross-aarch64-ubuntu2204-12-6-local_1
 d109e3e1720d33f9ea75379c619e22a6 cuda_12.6.2_windows_network.exe
 05eccc6034d99da4cf80558e6a80fbdc cuda_12.6.2_560.94_windows.exe
 e9bac16ee5f45e343f625068445da3b1 cuda-repo-wsl-ubuntu-12-6-local_12.6.2-1_amd64.deb
+```
