@@ -1,21 +1,41 @@
 # Custom Local AI Workflow
 
-This project documents a local AI setup for **Debian 13 (trixie)** with an **NVIDIA GeForce RTX 5070 Ti**.
+This repository documents a local AI setup for **Debian 13 (trixie)** with an **NVIDIA GeForce RTX 5070 Ti**.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Prerequisites](#prerequisites)
+- [NVIDIA CUDA Driver Setup](#1-nvidia-cuda-driver-setup)
+- [NVIDIA AIStore Setup](#2-nvidia-aistore-setup)
+- [llama.cpp Setup](#3-llamacpp-setup)
+- [Verification](#verification)
+- [Reference Notes](#reference-notes)
 
 ## Overview
 
-The workflow covers:
+This workflow covers:
 
 - NVIDIA CUDA driver and toolkit installation
 - NVIDIA AIStore setup
 - `llama.cpp` setup
 - Basic verification steps and useful references
 
+## Quick Start
+
+1. Install system dependencies.
+2. Install the NVIDIA CUDA driver/toolkit.
+3. Set up AIStore.
+4. Clone and build `llama.cpp`.
+5. Verify everything with `ais show cluster`.
+
 ## Prerequisites
 
 Install the required build and OpenGL dependencies:
 
 ```bash
+sudo apt-get update
 sudo apt-get install g++ freeglut3-dev build-essential libx11-dev \
     libxmu-dev libxi-dev libglu1-mesa-dev libfreeimage-dev libglfw3-dev
 ```
@@ -47,6 +67,7 @@ Official guide: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-installation-gu
    ```
 
 4. Choose an installation method:
+
    - https://developer.nvidia.com/cuda-downloads
    - Verify checksums for the downloaded file
 
@@ -98,7 +119,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda-12.6/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_
 
 ## 2. NVIDIA AIStore Setup
 
-### Disk setup
+### Disk Setup
 
 Decide:
 
@@ -106,11 +127,11 @@ Decide:
 - disk size
 - partitioning strategy
 
-### Service setup
+### Service Setup
 
 Set up `custom.service` and/or `/etc/fstab` as needed.
 
-### Clone and deploy AIStore
+### Clone and Deploy AIStore
 
 Official guide: https://docs.nvidia.com/aistore/getting_started
 
@@ -134,7 +155,7 @@ cmake -B build
 sudo dpkg -i *.deb
 ```
 
-## Getting Started
+## Verification
 
 Once everything is installed:
 
@@ -142,12 +163,7 @@ Once everything is installed:
 ais show cluster
 ```
 
-Useful links:
-
-- https://huggingface.co/models
-- https://docs.nvidia.com/aistore/
-
-## Notes from System Checks
+## Reference Notes
 
 ### GPU detected
 
