@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Priority:
+# 1) SYMON_STORE_DIR env var
+# 2) Current/parent dirs auto-discovery
+# 3) ~/Symon_Store fallback
+find_repo() {
+  if [[ -n "${SYMON_STORE_DIR:-}" && -f "${SYMON_STORE_DIR}/scripts/select_model.sh" ]]; then
+    echo "${SYMON_STORE_DIR}"
+    return
+  fi
+
+  local d="$PWD"
+  while [[ "$d" != "/" ]]; do
+    if [[ -f "$d/scripts/select_model.sh" ]]; then
+      echo "$d"
+      return
+    fi
+    d="$(dirname "$d")"
+  done
+
+  if [[ -f "$HOME/Symon_Store/scripts/select_model.sh" ]]; then
+    echo "$HOME/Symon_Store"
+    return
+  fi
+
+  echo ""
+}
+
+REPO_DIR="$(find_repo)"
+if [[ -z "$REPO_DIR" ]]; then
+  echo "symon-gpu: could not locate Symon_Store/scripts/select_model.sh" >&2
+  echo "Set SYMON_STORE_DIR=/path/to/Symon_Store or clone to ~/Symon_Store" >&2
+  exit 1
+fi
+
+exec bash "$REPO_DIR/scripts/select_model.sh"
