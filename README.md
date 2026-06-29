@@ -245,13 +245,15 @@ This keeps the model small enough to fully fit in VRAM when you also cap the con
 
 ### Step 4.5 — Download the model into AIStore
 
+Use an existing AIStore bucket for this step. The example below uses `symon_store`, so replace that bucket name if your cluster uses a different one.
+
 Start the download job:
 
 ```bash
 ais job start download "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf" ais://symon_store/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
 ```
 
-The command returns a `JOB_ID`. Monitor the transfer with:
+The command returns a `JOB_ID`. Replace `JOB_ID` below with the actual identifier returned by the previous command:
 
 ```bash
 ais job show download JOB_ID
@@ -300,8 +302,8 @@ Do not raise the context size above `16384` until you verify that your system st
 In OpenCode, add a custom **OpenAI-compatible** provider with:
 
 - Base URL: `http://127.0.0.1:8080/v1`
-- API key: any placeholder value if OpenCode requires one
-- Model: the model name exposed by your local `llama-server`
+- API key: `local-model` if OpenCode requires one
+- Model: the model name exposed by your local `llama-server`; you can check it with `curl http://127.0.0.1:8080/v1/models`
 
 Recommended starting values:
 
