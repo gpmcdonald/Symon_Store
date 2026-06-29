@@ -235,22 +235,55 @@ cmake --build build -j"$(nproc)"
 sudo dpkg -i *.deb
 ```
 
-### Step 4.4 — Choose a VRAM-safe model
+### Step 4.4 — Choose a model (5 options) and auto-select one with if/then
 
-For a **16GB RTX 5070 Ti**, use:
+Use one of these 5 GGUF models (all work with this same `llama.cpp` setup):
 
+- `Qwen2.5-Coder-0.5B-Instruct-Q4_K_M`
+- `Qwen2.5-Coder-1.5B-Instruct-Q4_K_M`
+- `Qwen2.5-Coder-3B-Instruct-Q4_K_M`
+- `Qwen2.5-Coder-7B-Instruct-Q4_K_M`
 - `Qwen2.5-Coder-14B-Instruct-Q4_K_M`
 
-This keeps the model small enough to fully fit in VRAM when you also cap the context window.
+Run this once to choose one model automatically based on GPU VRAM:
+
+```bash
+VRAM_MB="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | head -n1)"
+if [ "$VRAM_MB" -ge 20000 ]; then
+  MODEL_NAME="Qwen2.5-Coder-14B-Instruct"
+  MODEL_FILE="Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
+  CTX_SIZE=16384
+elif [ "$VRAM_MB" -ge 14000 ]; then
+  MODEL_NAME="Qwen2.5-Coder-7B-Instruct"
+  MODEL_FILE="Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
+  CTX_SIZE=16384
+elif [ "$VRAM_MB" -ge 10000 ]; then
+  MODEL_NAME="Qwen2.5-Coder-3B-Instruct"
+  MODEL_FILE="Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf"
+  CTX_SIZE=24576
+elif [ "$VRAM_MB" -ge 7000 ]; then
+  MODEL_NAME="Qwen2.5-Coder-1.5B-Instruct"
+  MODEL_FILE="Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf"
+  CTX_SIZE=32768
+else
+  MODEL_NAME="Qwen2.5-Coder-0.5B-Instruct"
+  MODEL_FILE="Qwen2.5-Coder-0.5B-Instruct-Q4_K_M.gguf"
+  CTX_SIZE=32768
+fi
+MODEL_REPO="https://huggingface.co/bartowski/${MODEL_NAME}-GGUF/resolve/main/${MODEL_FILE}"
+MODEL_AIS_URI="ais://symon_store/${MODEL_FILE}"
+MODEL_PATH="$HOME/models/${MODEL_FILE}"
+echo "Selected: $MODEL_FILE (ctx-size=$CTX_SIZE)"
+```
 
 ### Step 4.5 — Download the model into AIStore
 
 Use an existing AIStore bucket for this step. The example below uses `symon_store`, so replace that bucket name if your cluster uses a different one.
 
-Start the download job:
+Start the download job with the selected variables:
 
 ```bash
-ais job start download "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf" ais://symon_store/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+ais job start download "$MODEL_REPO" "$MODEL_AIS_URI"
 ```
 
 The command returns a `JOB_ID`. Replace `JOB_ID` below with the actual identifier returned by the previous command:
@@ -268,22 +301,22 @@ Use one of these approaches before starting the server:
 - copy the GGUF file from AIStore to a local directory
 - mount or otherwise expose the GGUF file on a local filesystem path
 
-Example local path used below:
+Example local path variable used below:
 
 ```text
-~/models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+$MODEL_PATH
 ```
 
 ### Step 4.7 — Start `llama-server`
 
-Launch the server with full GPU offload and a hard context cap:
+Launch the server with full GPU offload and the selected context cap:
 
 ```bash
 ./build/bin/llama-server \
-  --model ~/models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf \
+  --model "$MODEL_PATH" \
   --host 127.0.0.1 \
   --port 8080 \
-  --ctx-size 16384 \
+  --ctx-size "$CTX_SIZE" \
   --n-gpu-layers 999 \
   --parallel 1 \
   --flash-attn
@@ -297,11 +330,12 @@ mkdir -p ~/models
 
 ### Why this configuration
 
-- `--ctx-size 16384` is the safe default for keeping **Qwen2.5-Coder-14B-Instruct-Q4_K_M** and its working context inside **16GB VRAM**
+- the if/then block picks one of 5 model sizes so one flow works across different VRAM sizes
+- `--ctx-size "$CTX_SIZE"` keeps context aligned with the model selected by the if/then block
 - `--n-gpu-layers 999` uses a deliberately high value so `llama.cpp` offloads all model layers to the GPU when supported
 - `--parallel 1` keeps memory usage predictable during initial setup
 
-Do not raise the context size above `16384` until you verify that your system still stays fully inside VRAM.
+If you manually raise `CTX_SIZE`, verify VRAM usage and stability first.
 
 ### Step 4.8 — Check the exposed model name
 
