@@ -11,6 +11,8 @@ Follow this guide top to bottom. Each step includes exact commands and a clear o
 - NVIDIA CUDA drivers and toolkit
 - NVIDIA AIStore
 - `llama.cpp`
+- A local `llama-server` endpoint
+- OpenCode connected to the local model
 - Environment verification
 
 ## Before you begin
@@ -233,10 +235,111 @@ cmake --build build -j"$(nproc)"
 sudo dpkg -i *.deb
 ```
 
+### Step 4.4 — Choose a VRAM-safe model
+
+For a **16GB RTX 5070 Ti**, use:
+
+- `Qwen2.5-Coder-14B-Instruct-Q4_K_M`
+
+This keeps the model small enough to fully fit in VRAM when you also cap the context window.
+
+### Step 4.5 — Download the model into AIStore
+
+Use an existing AIStore bucket for this step. The example below uses `symon_store`, so replace that bucket name if your cluster uses a different one.
+
+Start the download job:
+
+```bash
+ais job start download "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf" ais://symon_store/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+```
+
+The command returns a `JOB_ID`. Replace `JOB_ID` below with the actual identifier returned by the previous command:
+
+```bash
+ais job show download JOB_ID
+```
+
+### Step 4.6 — Stage the model on a local filesystem path
+
+AIStore is a good place to store the model, but `llama.cpp` expects a normal local file path for the model file.
+
+Use one of these approaches before starting the server:
+
+- copy the GGUF file from AIStore to a local directory
+- mount or otherwise expose the GGUF file on a local filesystem path
+
+Example local path used below:
+
+```text
+~/models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+```
+
+### Step 4.7 — Start `llama-server`
+
+Launch the server with full GPU offload and a hard context cap:
+
+```bash
+./build/bin/llama-server \
+  --model ~/models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf \
+  --host 127.0.0.1 \
+  --port 8080 \
+  --ctx-size 16384 \
+  --n-gpu-layers 999 \
+  --parallel 1 \
+  --flash-attn
+```
+
+If needed, create the local model directory first:
+
+```bash
+mkdir -p ~/models
+```
+
+### Why this configuration
+
+- `--ctx-size 16384` is the safe default for keeping **Qwen2.5-Coder-14B-Instruct-Q4_K_M** and its working context inside **16GB VRAM**
+- `--n-gpu-layers 999` uses a deliberately high value so `llama.cpp` offloads all model layers to the GPU when supported
+- `--parallel 1` keeps memory usage predictable during initial setup
+
+Do not raise the context size above `16384` until you verify that your system still stays fully inside VRAM.
+
+### Step 4.8 — Check the exposed model name
+
+Before configuring OpenCode, confirm the exact model identifier returned by the local server:
+
+```bash
+curl http://127.0.0.1:8080/v1/models
+```
+
+### Step 4.9 — Connect OpenCode
+
+In OpenCode, add a custom **OpenAI-compatible** provider with:
+
+- Base URL: `http://127.0.0.1:8080/v1`
+- API key: any non-empty placeholder string if OpenCode requires one, for example `local-model`
+- Model: the model name returned by `curl http://127.0.0.1:8080/v1/models`
+
+Recommended starting values:
+
+- low temperature
+- moderate max output tokens
+- one chat at a time during initial testing
+
+### Step 4.10 — Validate the serving setup
+
+Check the setup in this order:
+
+1. Confirm `llama-server` starts without errors
+2. Send a short prompt from OpenCode
+3. Send a larger prompt with code, logs, or documentation
+4. If token generation slows down badly, reduce concurrency before changing models
+
 ### If this fails
 
 - Install missing build dependencies from Step 1
 - Make sure CMake is installed
+- Confirm the GGUF file exists at the local path passed to `--model`
+- Check that port `8080` is free before starting `llama-server`
 - Re-run the build command after resolving errors
 
 ---
@@ -249,6 +352,7 @@ Run these checks:
 lspci | grep -i nvidia
 nvidia-smi
 ais show cluster
+curl http://127.0.0.1:8080/v1/models
 ```
 
 ### Expected result
@@ -256,6 +360,7 @@ ais show cluster
 - Your NVIDIA GPU should be visible
 - CUDA should report successfully
 - AIStore should show a running cluster
+- The local `llama-server` should return model metadata
 
 ---
 
@@ -269,6 +374,7 @@ ais show cluster
 - AIStore CLI docs: https://docs.nvidia.com/aistore/cli
 - Hugging Face models: https://huggingface.co/models
 - AIStore main site: https://docs.nvidia.com/aistore/
+- Qwen2.5 Coder GGUF: https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF
 
 ---
 
