@@ -1,6 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+detect_gpu_name() {
+  # Prefer nvidia-smi for a clean product name
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    local name
+    name="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -n1 | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    if [[ -n "${name:-}" ]]; then
+      echo "$name"
+      return
+    fi
+  fi
+
+  # Fallback: parse lspci VGA/3D entry
+  if command -v lspci >/dev/null 2>&1; then
+    local pci
+    pci="$(lspci 2>/dev/null | grep -Ei 'VGA|3D|Display' | grep -Ei 'NVIDIA|AMD|Intel' | head -n1)"
+    if [[ -n "${pci:-}" ]]; then
+      # Keep text after first colon for readability
+      echo "$pci" | sed 's/^[^:]*:[[:space:]]*//'
+      return
+    fi
+  fi
+
+  echo ""
+}
+
 detect_vram_mb() {
   local vram=""
 
@@ -11,9 +36,25 @@ detect_vram_mb() {
       | awk '/Total[[:space:]]*:[[:space:]]*[0-9]+[[:space:]]*MiB/ {print $(NF-1); exit}')"
   fi
 
-  # Optional legacy fallback
+  # Primary fallback: nvidia-smi total VRAM (first GPU)
   if ! [[ "${vram:-}" =~ ^[0-9]+$ ]] && command -v nvidia-smi >/dev/null 2>&1; then
-    vram="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n1)"
+    vram="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n1 | tr -d '[:space:]')"
+  fi
+
+  # Additional fallback: nvtop no-GUI output if available
+  if ! [[ "${vram:-}" =~ ^[0-9]+$ ]] && command -v nvtop >/dev/null 2>&1; then
+    # Different nvtop versions support different flags; try a couple safely.
+    vram="$(
+      { nvtop -b -f - -d 1 -s 1 2>/dev/null || nvtop --batch --once 2>/dev/null || true; } \
+      | awk 'BEGIN{IGNORECASE=1}
+          /mem|memory|vram/ {
+            for (i=1; i<=NF; i++) {
+              if ($i ~ /^[0-9]+$/) {print $i; exit}
+              if ($i ~ /^[0-9]+MiB$/) {gsub(/MiB/, "", $i); print $i; exit}
+              if ($i ~ /^[0-9]+MB$/) {gsub(/MB/, "", $i); print $i; exit}
+            }
+          }'
+    )"
   fi
 
   # Final validation
@@ -25,6 +66,7 @@ detect_vram_mb() {
 }
 
 VRAM_MB="$(detect_vram_mb)"
+GPU_NAME="$(detect_gpu_name)"
 
 # Safe defaults
 MODEL_FILE="Qwen2.5-Coder-0.5B-Instruct-Q4_K_M.gguf"
@@ -53,6 +95,8 @@ MODEL_AIS_URI="ais://symon_store/${MODEL_FILE}"
 MODEL_PATH="$HOME/models/${MODEL_FILE}"
 
 cat <<EOF
+GPU_NAME=${GPU_NAME}
+VRAM_MB=${VRAM_MB}
 MODEL_FILE=${MODEL_FILE}
 CTX_SIZE=${CTX_SIZE}
 MODEL_REPO=${MODEL_REPO}
