@@ -27,7 +27,7 @@ Use this structure to keep scripts organized and easy to run:
 ```bash
 git clone https://github.com/gpmcdonald/Symon_Store.git
 cd Symon_Store
-chmod +x scripts/*.sh
+chmod +x scripts/*
 ./scripts/setup.sh
 ```
 
