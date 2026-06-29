@@ -291,8 +291,8 @@ Launch the server with full GPU offload and a hard context cap:
 
 ### Why this configuration
 
-- `--ctx-size 16384` is the safe default for keeping the model and working context inside 16GB VRAM
-- `--n-gpu-layers 999` pushes the full model to the GPU when supported
+- `--ctx-size 16384` is the safe default for keeping **Qwen2.5-Coder-14B-Instruct-Q4_K_M** and its working context inside **16GB VRAM**
+- `--n-gpu-layers 999` uses a deliberately high value so `llama.cpp` offloads all model layers to the GPU when supported
 - `--parallel 1` keeps memory usage predictable during initial setup
 
 Do not raise the context size above `16384` until you verify that your system still stays fully inside VRAM.
@@ -302,7 +302,7 @@ Do not raise the context size above `16384` until you verify that your system st
 In OpenCode, add a custom **OpenAI-compatible** provider with:
 
 - Base URL: `http://127.0.0.1:8080/v1`
-- API key: `local-model` if OpenCode requires one
+- API key: `local-model` if OpenCode requires one; it is only a placeholder for clients that insist on a non-empty key
 - Model: the model name exposed by your local `llama-server`; you can check it with `curl http://127.0.0.1:8080/v1/models`
 
 Recommended starting values:
