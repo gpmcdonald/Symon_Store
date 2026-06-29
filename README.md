@@ -271,7 +271,7 @@ Use one of these approaches before starting the server:
 Example local path used below:
 
 ```text
-/models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
+~/models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf
 ```
 
 ### Step 4.7 — Start `llama-server`
@@ -280,13 +280,19 @@ Launch the server with full GPU offload and a hard context cap:
 
 ```bash
 ./build/bin/llama-server \
-  --model /models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf \
+  --model ~/models/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf \
   --host 127.0.0.1 \
   --port 8080 \
   --ctx-size 16384 \
   --n-gpu-layers 999 \
   --parallel 1 \
   --flash-attn
+```
+
+If needed, create the local model directory first:
+
+```bash
+mkdir -p ~/models
 ```
 
 ### Why this configuration
@@ -297,13 +303,21 @@ Launch the server with full GPU offload and a hard context cap:
 
 Do not raise the context size above `16384` until you verify that your system still stays fully inside VRAM.
 
-### Step 4.8 — Connect OpenCode
+### Step 4.8 — Check the exposed model name
+
+Before configuring OpenCode, confirm the exact model identifier returned by the local server:
+
+```bash
+curl http://127.0.0.1:8080/v1/models
+```
+
+### Step 4.9 — Connect OpenCode
 
 In OpenCode, add a custom **OpenAI-compatible** provider with:
 
 - Base URL: `http://127.0.0.1:8080/v1`
-- API key: `local-model` if OpenCode requires one; it is only a placeholder for clients that insist on a non-empty key
-- Model: the model name exposed by your local `llama-server`; you can check it with `curl http://127.0.0.1:8080/v1/models`
+- API key: any non-empty placeholder string if OpenCode requires one, for example `local-model`
+- Model: the model name returned by `curl http://127.0.0.1:8080/v1/models`
 
 Recommended starting values:
 
@@ -311,7 +325,7 @@ Recommended starting values:
 - moderate max output tokens
 - one chat at a time during initial testing
 
-### Step 4.9 — Validate the serving setup
+### Step 4.10 — Validate the serving setup
 
 Check the setup in this order:
 
