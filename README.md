@@ -248,39 +248,33 @@ Use one of these 5 GGUF models (all work with this same `llama.cpp` setup):
 Run this once to choose one model automatically based on GPU VRAM:
 
 ```bash
+fail() { echo "$1"; return 1 2>/dev/null || exit 1; }
 if ! command -v nvidia-smi >/dev/null 2>&1; then
-  echo "nvidia-smi is not installed or not in PATH."
-  exit 1
+  fail "nvidia-smi is not installed or not in PATH."
 fi
 VRAM_MB="$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n1)"
 if ! [[ "$VRAM_MB" =~ ^[0-9]+$ ]]; then
-  echo "Unable to read GPU VRAM from nvidia-smi."
-  exit 1
+  fail "Unable to read GPU VRAM from nvidia-smi."
 fi
 # Thresholds are conservative defaults for Q4_K_M on a single GPU.
 # If your system is stable, you can tune thresholds and CTX_SIZE values upward.
 if [ "$VRAM_MB" -ge 20000 ]; then
-  MODEL_NAME="Qwen2.5-Coder-14B-Instruct"
   MODEL_FILE="Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
   MODEL_REPO="https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/${MODEL_FILE}"
   CTX_SIZE=16384
 elif [ "$VRAM_MB" -ge 14000 ]; then
-  MODEL_NAME="Qwen2.5-Coder-7B-Instruct"
   MODEL_FILE="Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf"
   MODEL_REPO="https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/${MODEL_FILE}"
   CTX_SIZE=16384
 elif [ "$VRAM_MB" -ge 10000 ]; then
-  MODEL_NAME="Qwen2.5-Coder-3B-Instruct"
   MODEL_FILE="Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf"
   MODEL_REPO="https://huggingface.co/bartowski/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/${MODEL_FILE}"
   CTX_SIZE=24576
 elif [ "$VRAM_MB" -ge 7000 ]; then
-  MODEL_NAME="Qwen2.5-Coder-1.5B-Instruct"
   MODEL_FILE="Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf"
   MODEL_REPO="https://huggingface.co/bartowski/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/${MODEL_FILE}"
   CTX_SIZE=32768
 else
-  MODEL_NAME="Qwen2.5-Coder-0.5B-Instruct"
   MODEL_FILE="Qwen2.5-Coder-0.5B-Instruct-Q4_K_M.gguf"
   MODEL_REPO="https://huggingface.co/bartowski/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/${MODEL_FILE}"
   CTX_SIZE=32768
